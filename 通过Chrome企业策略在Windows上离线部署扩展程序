@@ -1,0 +1,82 @@
+如果你对通过Chrome企业策略在Windows上离线部署扩展程序感兴趣，这是一个很好的练习，因为它涉及到一些系统管理和组策略的知识。虽然它主要用于大型组织，但了解其机制对个人开发者也很有益。
+
+核心思想：
+Chrome企业策略允许管理员通过Windows的组策略 (Group Policy) 或注册表 (Registry) 来强制安装、配置和管理Chrome浏览器及其扩展程序，即便它们不是来自Chrome网上应用店。
+
+步骤概述 (针对 Windows 系统)
+
+1. 准备你的扩展程序
+打包为CRX文件: 尽管最终你会通过组策略或注册表指定本地路径，但扩展程序仍需要打包成CRX格式。
+在Chrome浏览器中打开 chrome://extensions/。
+启用“开发者模式”。
+点击“打包扩展程序”按钮。
+选择你的扩展程序的根目录（DIST 文件夹）。
+点击“打包扩展程序”。这将生成一个 .crx 文件和一个 .pem 文件。.pem 文件是私钥，用于后续更新，请妥善保管。
+获取扩展程序ID: CRX 文件打包后，你的扩展程序会获得一个唯一的 ID。你可以在 chrome://extensions/ 页面，在“开发者模式”下看到已加载扩展程序的 ID。这个 ID 非常重要，后续会用到。
+将CRX文件放置在可访问的位置： 将生成的 .crx 文件放到一个你的朋友（或目标机器）可以访问的本地路径或网络共享路径。例如，C:\my-extension\my_extension.crx。
+2. 获取 Chrome Enterprise ADMX 模板
+为了在组策略编辑器中看到Chrome的相关设置，你需要下载并导入Chrome的管理模板 (Administrative Templates)。
+
+下载： 访问 Chrome Enterprise Downloads 页面，找到 "Chrome Browser" 部分，下载 "Chrome Enterprise Bundle"。
+解压： 解压下载的 .zip 文件。你会找到一个 Configuration 文件夹，其中包含 admx 和 adml 文件。
+复制模板文件：
+将 chrome.admx 文件复制到 C:\Windows\PolicyDefinitions。
+将 chrome.adml 文件（以及你需要的其他语言文件，例如 en-US 文件夹中的 chrome.adml）复制到 C:\Windows\PolicyDefinitions\en-US\ (或相应的语言文件夹)。
+3. 配置组策略 (Group Policy)
+这是企业部署的核心。你需要使用Windows的组策略编辑器来配置Chrome。
+
+方法 A: 本地组策略编辑器 (适用于单台机器测试)
+
+打开本地组策略编辑器： 按 Win + R，输入 gpedit.msc，然后按 Enter。
+导航到 Chrome 策略：
+在左侧导航栏，依次展开：计算机配置 -> 管理模板。
+如果之前正确导入了 ADMX 模板，你应该会看到 Google -> Google Chrome -> Extensions。
+强制安装扩展程序：
+找到并双击 配置要强制安装的应用和扩展程序列表 (Configure the list of force-installed apps and extensions)。
+选择“已启用 (Enabled)”。
+点击“显示 (Show...)”按钮。
+在“值 (Value)”列中，添加以下格式的字符串： [扩展程序ID];[CRX文件路径] 例如：abcdefghijklmnopqrstuvwxyz123456;file:///C:/my-extension/my_extension.crx 重要提示：
+[扩展程序ID] 是你扩展程序的 ID。
+file:///C:/my-extension/my_extension.crx 是你的CRX文件的本地路径。确保路径正确，并且使用 file:// 协议。
+注意： 如果你的CRX文件在网络共享上，例如 \\server\share\my_extension.crx，你可能需要使用 file:////server/share/my_extension.crx (四个斜杠)。
+点击“确定”关闭所有对话框。
+强制刷新组策略： 打开命令提示符 (以管理员身份运行)，输入 gpupdate /force，然后按 Enter。
+重启 Chrome： 关闭所有Chrome实例并重新打开。你的扩展程序应该会自动安装并启用。
+方法 B: Active Directory 域控制器上的组策略 (适用于多台机器部署)
+
+如果你在拥有 Active Directory 的企业环境中，可以使用 Group Policy Management Console (GPMC) 来创建和链接 GPO (Group Policy Object) 到特定的组织单位 (OU) 或整个域。
+
+在域控制器上操作： 登录到你的域控制器。
+创建或编辑 GPO：
+打开 Server Manager -> Tools -> Group Policy Management。
+找到你的域，右键点击“Group Policy Objects”，选择“New”创建一个新的 GPO，或者右键点击一个现有 GPO 并选择“Edit”。
+链接 GPO： 将创建的 GPO 链接到你希望部署扩展程序的 OU。
+配置策略： 步骤与本地组策略编辑器中的配置类似，导航到 计算机配置 (或 用户配置) -> 策略 -> 管理模板 -> Google -> Google Chrome -> Extensions，然后配置 配置要强制安装的应用和扩展程序列表。
+应用策略： 域中的客户端计算机会在下一次组策略刷新时（默认每90分钟或通过 gpupdate /force 手动触发）应用这些策略。
+4. 通过注册表 (Registry) 配置 (替代组策略或针对单机)
+如果你不想使用组策略，或者只是在单台机器上测试，可以直接修改注册表。
+
+打开注册表编辑器： 按 Win + R，输入 regedit，然后按 Enter。
+导航到对应路径：
+对于 32位Windows 系统，或在 64位Windows 系统上为 所有用户 配置： HKEY_LOCAL_MACHINE\SOFTWARE\Google\Chrome\Extensions
+对于 64位Windows 系统，并希望在 Wow6432Node 下配置： HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Google\Chrome\Extensions
+创建扩展程序 ID 键：
+在 Extensions 键下，创建一个新的“项 (Key)”，名称就是你的扩展程序ID。
+例如：HKEY_LOCAL_MACHINE\SOFTWARE\Google\Chrome\Extensions\abcdefghijklmnopqrstuvwxyz123456
+创建值：
+在刚创建的扩展程序ID键下，创建两个字符串值 (String Value)：
+installation_mode (REG_SZ): 值设为 force_installed
+update_url (REG_SZ): 值设为 file:///C:/my-extension/my_extension.crx (替换为你的CRX文件路径，同样使用 file:// 协议)
+注意： 某些旧文档可能会提及 update_url 指向一个 XML 文件，但对于本地CRX文件，直接指向 .crx 文件通常更简单。如果遇到问题，可以尝试创建一个包含 update_url 和 manifest.xml 的XML文件（XML文件通常指向Chrome Web Store或一个自定义更新服务器）。
+重启 Chrome： 关闭所有Chrome实例并重新打开。扩展程序应该会自动安装。
+注意事项和最佳实践
+权限： HKEY_LOCAL_MACHINE 注册表项和组策略设置会影响所有用户。你需要管理员权限才能修改这些设置。
+文件路径： 确保CRX文件的路径在目标机器上是可访问的。如果是网络共享，需要确保网络权限正确配置。
+更新： 这种离线强制安装的方式，每次有新版本发布时，你需要：
+重新打包新的CRX文件。
+替换掉原有的CRX文件（或者更新组策略/注册表中的路径和版本信息，但直接替换文件通常更简单）。
+强制刷新组策略 (如果使用组策略) 或等待Chrome自动检测更新。
+安全性警告： 尽管通过企业策略强制安装可以绕过用户警告，但用户在 chrome://extensions/ 页面仍然会看到扩展程序是由企业策略安装的提示。
+私钥 (.pem)： .pem 文件非常重要。每次打包时，如果使用相同的 .pem 文件，你的扩展程序 ID 将保持不变，并且可以实现自动更新（当CRX文件被替换时）。如果丢失了 .pem 文件，你将无法用相同的 ID 发布新版本，旧版本也无法自动更新到你发布的新版本。
+复杂性： 尽管这是一种强大的部署方式，但对于只是分享给几个朋友而言，可能有点过于复杂。它更适合需要大规模部署和管理的场景。但作为编程实践，它确实能让你深入了解Chrome的企业级管理能力。
+祝你在实践中取得成功！
