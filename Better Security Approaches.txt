@@ -1,0 +1,24 @@
+Better Security Approaches
+Consider these alternatives:
+1. Individual Credentials
+
+Generate separate app passwords for each friend
+Each gets their own limited WebDAV subfolder
+You can revoke individual access
+
+2. Read-Only Distribution
+
+Use a public read-only link/folder for distribution
+Handle updates through a more controlled method
+
+3. Proper Software Distribution
+
+Use GitHub releases, proper package managers, or established distribution channels
+Implement signed updates with verification
+
+4. API-Based Updates
+
+Create a simple API endpoint that serves the latest version
+No shared credentials needed
+
+Your security instinct is spot-on - this current method essentially gives every friend admin-level access to your distribution system.
